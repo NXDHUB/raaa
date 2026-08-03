@@ -1,0 +1,1263 @@
+-- Hide.lat Basic v21 | d58d948fc70a77cbc31b8f054f7f83d7
+local _fs633 = game:GetService("HttpService")
+local _fp434 = game:GetService("Players").LocalPlayer or game:GetService("Players").PlayerAdded:Wait()
+local _fc637 = {id="A3AATXLXWLW",k=false,h=false,t=1774101084437}
+
+-- Free tier validation (different from premium)
+if _fc637.k then
+    local _fk138 = nil
+    pcall(function() if _G and _G.script_key then _fk138 = tostring(_G.script_key) end end)
+    if not _fk138 then pcall(function() if getgenv then local e = getgenv() if e and e.script_key then _fk138 = tostring(e.script_key) end end end) end
+    if not _fk138 or _fk138 == "" or _fk138 == "nil" then return _fp434:Kick("[Hide.lat] Key required. Set _G.script_key = 'YOUR_KEY' before running.") end
+    local s,r = pcall(function()
+        local req = (syn and syn.request) or request or http_request
+        if req then
+            return req({Url="https://hide.lat/api/free/validate",Method="POST",Headers={["Content-Type"]="application/json"},Body=_fs633:JSONEncode({id=_fc637.id,key=_fk138,user=tostring(_fp434.UserId),timestamp=os.time()})})
+        end
+    end)
+    if s and r and r.Body then
+        local d = nil
+        pcall(function() d = _fs633:JSONDecode(r.Body) end)
+        if d and d.error then return _fp434:Kick("[Hide.lat] " .. tostring(d.error)) end
+    elseif _fc637.k then
+        return _fp434:Kick("[Hide.lat] Could not validate key")
+    end
+end
+-- Script content follows
+
+
+-- Script Content
+-- SAINT FINDER OFFICIAL SOURCE-- |
+-- LYUBOMYR2012 (DEVELOPER)--     |
+-- CREDITS TO DISCORD.GG/ICEHUB-- |
+-- discord.gg/2vkwvMZrsp--        |
+----------------------------------|
+
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
+local Workspace = game:GetService("Workspace")
+local GuiService = game:GetService("GuiService")
+local Lighting = game:GetService("Lighting")
+local MaterialService = game:GetService("MaterialService")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+local SETTINGS_FILE = "SaintFinder_Settings.json"
+
+local function safeParent(gui)
+    if gethui then
+        gui.Parent = gethui()
+    elseif syn and syn.protect_gui then
+        syn.protect_gui(gui)
+        gui.Parent = CoreGui
+    else
+        pcall(function() gui.Parent = CoreGui end)
+    end
+end
+
+local function cleanMoney(val)
+    if type(val) == "number" then return val end
+    if type(val) == "string" then
+        local cleaned = val:gsub("[^0-9%.]", "")
+        return tonumber(cleaned) or 0
+    end
+    return 0
+end
+
+local function getNormalizedMoney(val)
+    val = cleanMoney(val)
+    if val > 999999 then
+        return val / 1e6
+    end
+    return val
+end
+
+local function formatMoney(val)
+    val = getNormalizedMoney(val)
+    if val >= 1000 then
+        return string.format("%.1fB", val / 1000)
+    end
+    return string.format("%.0fM", val)
+end
+
+local state = {
+    autoJoin = false,
+    minMoney = 10,
+    autoForceJoin = false,
+    minForceMoney = 100,
+    forceDuration = 10,
+    activeForces = {},
+
+    blacklist = {},
+    targetList = {},
+    targetLimits = {},
+
+    purpleBaseEnabled = false,
+    antiError = false,
+    optimizerEnabled = false,
+
+    brainrotBlacklists = {
+        BrainrotGod = {},
+        Secret = {},
+        OG = {},
+    },
+}
+
+local BrainrotGodList = {
+    "Alessio", "Anpali Babel", "Antonio", "Aquanut", "Aquatic Index", "Ballerina Peppermintina",
+    "Ballerino Lololo", "Bambu Bambu Sahur", "Belula Beluga", "Bombardini Tortinii",
+    "Brainrot God Lucky Block", "Brasilini Berimbini", "Brr es Teh Patipum", "Bulbito Bandito Traktorito",
+    "Cacasito Satalito", "Capi Taco", "Cappuccino Clownino", "Chihuanini Taconini", "Cocofanto Elefanto",
+    "Corn Corn Corn Sahur", "Crabbo Limonetta", "Dug dug dug", "Espresso Signora", "Extinct Ballerina",
+    "Fishing Event", "Frio Ninja", "Gattatino Neonino", "Gattatino Nyanino", "Gattito Tacoto",
+    "Girafa Celestre", "Granchiello Spiritell", "Indonesian Event", "Jacko Jack Jack", "Krupuk Pagi Pagi",
+    "Las Cappuchinas", "Los Bombinitos", "Los Chihuaninis", "Los Crocodillitos", "Los Gattitos",
+    "Los Orcalitos", "Los Tipi Tacos", "Los Tungtungtungcitos", "Mastodontico Telepiedone", "Matteo",
+    "Money Money Man", "Mummy Ambalabu", "Noo La Polizia", "Odin Din Din Dun", "Orcalero Orcala",
+    "Orcalita Orcala", "Pakrahmatmamat", "Pakrahmatmatina", "Piccione Macchina", "Piccionetta Machina",
+    "Pop Pop Sahur", "Skull Skull Skull", "Snailenzo", "Squalanana", "Statutino Libertino",
+    "Tartaruga Cisterna", "Tentacolo Tecnico", "Tigroligre Frutonni", "Tipi Topi Taco",
+    "Tractoro Dinosauro", "Tralalero Tralala", "Tralalita Tralala", "Trenostruzzo Turbo 3000",
+    "Trippi Troppi Troppa Trippa", "Tukanno Bananno", "Unclito Samito", "Urubini Flamenguini",
+    "Vampira Cappuccina",
+}
+
+local SecretList = {
+    "1x1x1x1", "25", "67", "Agarrini La Palini", "Bisonte Giuppitere", "Blackhole Goat", "Boatito Auratito", "Burguro and Fryuro", "Burrito Bandito",
+    "Capitano Moby", "Celularcini Viciosini", "Chachechi", "Chicleteira Bicicleteira",
+    "Chicleteirina Bicicleteirina", "Chillin Chili", "Chimpanzini Spiderini", "Chipso and Queso",
+    "Coffin Tung Tung Tung Sahur", "Combinasions", "Cuadramat and Pakrahmatmamat",
+    "Dragon Cannelloni", "Dul Dul Dul", "Esok Sekolah", "Eviledon", "Extinct Matteo",
+    "Extinct Tralalero", "Festive 67", "Fishing Event", "Fishino Clownino", "Fragola La La La",
+    "Fragrama and Chocrama", "Frankentteo", "Garama and Madundung", "Giftini Spyderini",
+    "Gobblino Uniciclino", "Graipuss Medussi", "Guerriro Digitale", "Guest 666", "Headless Horseman",
+    "Hokka Horloge", "Horegini Boom", "Jackorilla", "Job Job Job Sahur", "Karker Sahur",
+    "Karkerkar Kurkur", "Ketchuru and Musturu", "Ketupat Kepat", "La Casa Boo", "La Cucaracha",
+    "La Extinct Grande", "La Ginger Sekolah", "La Gingerbread Kepat", "La Grande Combinasion",
+    "La Jolly Grande", "La Karkerkar Combinasion", "La Sahur Combinasion", "La Secret Combinasion",
+    "La Spooky Grande", "La Supreme Combinasion", "La Taco Combinasion", "La Vacca Jacko Linterino",
+    "La Vacca Presento Natalina", "La Vacca Saturno Saturnita", "Las Sis", "Las Tralaleritas",
+    "Las Vaquitas Saturnitas", "Lavadorito Spinito", "Los 67", "Los Bros", "Los Chicleteiras",
+    "Los Combinasionas", "Los Hotspotsitos", "Los Jobcitos", "Los Cucarachas", "Los Karkeritos", "Los Matteos",
+    "Los Mobilis", "Los Nooo My Hotspotsitos", "Los Planitos", "Los Quesadillas", "Chimnino", "Los 25", "Los Spaghettis",
+    "Los Spooky Combinasionas", "Los Spyderinis", "Los Tacoritas", "Los Tortus", "Los Tralaleritos",
+    "Los Burritos", "Telemorte", "Mariachi Corazoni", "Mieteteira Bicicleteira", "Money Money Puggy", "Noo my Candy",
+    "Noo my examine", "Nooo My Hotspot", "Nuclearo Dinossauro", "Orcaledon", "Perrito Burrito",
+    "Pirulitoita Bicicleteira", "Pot Hotspot", "Pot Pumpkin", "Pumpkini Spyderini",
+    "Quesadilla Crocodila", "Quesadillo Vampiro", "Rang Ring Bus", "Sammyni Spyderini",
+    "Santa Chicleteira", "Spaghetti Tualetti", "Spooky and Pumpky", "Swag Soda",
+    "Tacorita Bicicleta", "Tamaluk un Meass", "Tang Tang Keletang", "Tictac Sahur",
+    "To to to Sahur", "Torrtuginni Dragonfrutini", "Tralaledon", "Trenostruzzo Turbo 4000",
+    "Trickolino", "Tung Tung Tung Sahur", "Vulturino Skeletono", "W or L", "Money Money Reindeer", "Yess my examine", "Tuff Toucan", "Swaggy Bros", "Reinito Sleighito", "Cooki and Milki", "Dragon Gingerini", "Jolly Jolly Sahur", "Los Jolly Combinasionas", "Los Candies",
+    "Zombie Tralala",
+
+    -- NEW SECRET‑STYLE BRAINROTS
+    "Spinny Hammy",
+    "Bacuru and Egguru",
+    "DJ Panda",
+    "Rosey and Teddy",
+    "Nacho Spyder",
+    "Tacorillo Crocodillo",
+    "Cigno Fulgoro",
+    "Noo my Gold",
+    "Cigno Fulgoro",
+}
+
+local OGList = {
+    "Strawberry Elephant", "Meowl", "Skibidi Toilet",
+}
+
+---------------------------------------------------------------------
+-- SETTINGS SAVE / LOAD
+---------------------------------------------------------------------
+local function saveSettings()
+    local data = {
+        autoJoin = state.autoJoin,
+        minMoney = state.minMoney,
+        autoForceJoin = state.autoForceJoin,
+        minForceMoney = state.minForceMoney,
+        forceDuration = state.forceDuration,
+        blacklist = state.blacklist,
+        targetList = state.targetList,
+        targetLimits = state.targetLimits,
+        purpleBaseEnabled = state.purpleBaseEnabled,
+        antiError = state.antiError,
+        optimizerEnabled = state.optimizerEnabled,
+        brainrotBlacklists = state.brainrotBlacklists,
+    }
+    pcall(function()
+        if writefile then
+            writefile(SETTINGS_FILE, HttpService:JSONEncode(data))
+        end
+    end)
+end
+
+local function loadSettings()
+    pcall(function()
+        if isfile and isfile(SETTINGS_FILE) then
+            local raw = readfile(SETTINGS_FILE)
+            local data = HttpService:JSONDecode(raw)
+            for k,v in pairs(data) do
+                if state[k] ~= nil then
+                    state[k] = v
+                end
+            end
+        end
+    end)
+end
+loadSettings()
+
+---------------------------------------------------------------------
+-- PURPLE BASE
+---------------------------------------------------------------------
+local PurpleBaseConnection
+local function togglePurpleBase(enabled)
+    if not enabled then
+        if PurpleBaseConnection then
+            PurpleBaseConnection:Disconnect()
+            PurpleBaseConnection = nil
+        end
+        return
+    end
+
+    local function PaintPart(part)
+        if part:IsA("BasePart") and part.Transparency < 1 then
+            pcall(function()
+                part.Color = Color3.fromRGB(120, 0, 255)
+                part.Material = Enum.Material.SmoothPlastic
+            end)
+        end
+    end
+
+    local function GetPlayerBase()
+        local plots = Workspace:FindFirstChild("Plots")
+        if not plots then return nil end
+        for _, plot in pairs(plots:GetChildren()) do
+            local sign = plot:FindFirstChild("PlotSign")
+            if sign and sign:FindFirstChild("YourBase") and sign.YourBase.Enabled then
+                return plot
+            end
+            if plot:FindFirstChild("Owner") and plot.Owner.Value == LocalPlayer then
+                return plot
+            end
+        end
+        return nil
+    end
+
+    local myPlot = GetPlayerBase()
+    if myPlot then
+        for _, obj in pairs(myPlot:GetDescendants()) do
+            PaintPart(obj)
+        end
+        PurpleBaseConnection = myPlot.DescendantAdded:Connect(function(obj)
+            task.wait(0.1)
+            PaintPart(obj)
+        end)
+    end
+end
+
+if state.purpleBaseEnabled then task.spawn(function() togglePurpleBase(true) end) end
+
+---------------------------------------------------------------------
+-- ANTI ERROR
+---------------------------------------------------------------------
+RunService.RenderStepped:Connect(function()
+    if state.antiError then
+        pcall(function()
+            local prompt = CoreGui:FindFirstChild("RobloxPromptGui")
+            if prompt then
+                local overlay = prompt:FindFirstChild("promptOverlay")
+                if overlay then overlay.Visible = false end
+            end
+        end)
+        GuiService:ClearError()
+    end
+end)
+
+---------------------------------------------------------------------
+-- ULTRA CHECK JOBID
+---------------------------------------------------------------------
+local function ultraCheckjobid(id)
+    local targetBox, targetBtn
+
+    local function getGuiRoots()
+        local roots = {CoreGui, LocalPlayer:WaitForChild("PlayerGui")}
+        pcall(function() if gethui then table.insert(roots, gethui()) end end)
+        return roots
+    end
+
+    local function searchForElements(root)
+        for _, v in ipairs(root:GetDescendants()) do
+            if (v:IsA("TextLabel") or v:IsA("TextButton")) and v.Text then
+                local txt = string.lower(v.Text)
+                if txt:match("join job%-id") then
+                    if v:IsA("TextLabel") and v.Parent then
+                        targetBtn = v.Parent
+                    else
+                        targetBtn = v
+                    end
+                end
+            end
+            if v:IsA("TextLabel") and v.Text then
+                local txt = string.lower(v.Text)
+                if txt:match("job%-id input") then
+                    local parent = v.Parent
+                    if parent then
+                        for _, sib in ipairs(parent:GetDescendants()) do
+                            if sib:IsA("TextBox") then
+                                targetBox = sib
+                            end
+                        end
+                        if not targetBox and parent.Parent then
+                            for _, sib in ipairs(parent.Parent:GetDescendants()) do
+                                if sib:IsA("TextBox") then
+                                    targetBox = sib
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    for _, root in ipairs(getGuiRoots()) do
+        pcall(function() searchForElements(root) end)
+        if targetBox and targetBtn then break end
+    end
+
+    if targetBox and targetBtn then
+        pcall(function()
+            targetBox.Text = tostring(id)
+            local ok, conns = pcall(getconnections, targetBox.FocusLost)
+            if ok and conns then
+                for _, c in ipairs(conns) do
+                    if c.Function then task.spawn(c.Function, true) end
+                end
+            end
+        end)
+
+        task.wait()
+
+        pcall(function()
+            if targetBtn:IsA("GuiButton") then
+                local events = {targetBtn.MouseButton1Click, targetBtn.MouseButton1Down, targetBtn.Activated}
+                for _, event in ipairs(events) do
+                    local ok, conns = pcall(getconnections, event)
+                    if ok and conns then
+                        for _, c in ipairs(conns) do
+                            if c.Function then task.spawn(c.Function) end
+                        end
+                    end
+                end
+            else
+                local ok, conns = pcall(getconnections, targetBtn.InputBegan)
+                if ok and conns then
+                    for _, c in ipairs(conns) do
+                        if c.Function then
+                            task.spawn(c.Function, {UserInputType = Enum.UserInputType.MouseButton1})
+                        end
+                    end
+                end
+            end
+        end)
+        return true
+    end
+
+    return false
+end
+
+---------------------------------------------------------------------
+-- MAIN UI
+---------------------------------------------------------------------
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SaintFinderUI"
+safeParent(ScreenGui)
+
+local UIScale = Instance.new("UIScale", ScreenGui)
+if GuiService:IsTenFootInterface() then
+    UIScale.Scale = 0.85
+elseif UserInputService.TouchEnabled then
+    UIScale.Scale = 0.65
+else
+    UIScale.Scale = 1.0
+end
+
+local SJBox
+
+local Main = Instance.new("Frame", ScreenGui)
+Main.Name = "IcxyHubJoiner"
+Main.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
+Main.Position = UDim2.new(0.5, -260, 0.5, -210)
+Main.Size = UDim2.new(0, 520, 0, 420)
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
+
+do
+    local dragging, dragStart, startPos
+
+    local function update(input)
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
+
+    Main.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = Main.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if not dragging then return end
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
+            update(input)
+        end
+    end)
+end
+
+local outerStroke = Instance.new("UIStroke", Main)
+outerStroke.Thickness = 2
+outerStroke.Color = Color3.fromRGB(160, 80, 255)
+outerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+local strokeGradient = Instance.new("UIGradient")
+strokeGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0.00, Color3.fromRGB(210, 110, 255)),
+    ColorSequenceKeypoint.new(0.18, Color3.fromRGB(40, 15, 80)),
+    ColorSequenceKeypoint.new(0.36, Color3.fromRGB(190, 90, 255)),
+    ColorSequenceKeypoint.new(0.54, Color3.fromRGB(25, 10, 55)),
+    ColorSequenceKeypoint.new(0.72, Color3.fromRGB(220, 130, 255)),
+    ColorSequenceKeypoint.new(0.90, Color3.fromRGB(55, 18, 105)),
+    ColorSequenceKeypoint.new(1.00, Color3.fromRGB(210, 110, 255)),
+})
+strokeGradient.Parent = outerStroke
+
+task.spawn(function()
+    local rot = 0
+    while Main.Parent do
+        task.wait(0.016)
+        rot = (rot + 1.8) % 360
+        pcall(function()
+            strokeGradient.Rotation = rot
+        end)
+    end
+end)
+
+local Padding = Instance.new("UIPadding", Main)
+Padding.PaddingTop = UDim.new(0, 8)
+Padding.PaddingLeft = UDim.new(0, 10)
+Padding.PaddingRight = UDim.new(0, 10)
+
+local Header = Instance.new("Frame", Main)
+Header.Size = UDim2.new(1, 0, 0, 40)
+Header.BackgroundTransparency = 1
+
+local Title = Instance.new("TextLabel", Header)
+Title.Size = UDim2.new(0.7, 0, 1, 0)
+Title.Position = UDim2.new(0.02, 0, 0, 0)
+Title.Text = "Icxy Hub Auto Joiner"
+Title.TextColor3 = Color3.fromRGB(190, 150, 255)
+Title.TextSize = 22
+Title.Font = Enum.Font.GothamBold
+Title.BackgroundTransparency = 1
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local CloseBtn = Instance.new("TextButton", Header)
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -40, 0.5, -15)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(220, 80, 80)
+CloseBtn.TextSize = 18
+CloseBtn.Font = Enum.Font.GothamBold
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+
+local Controls = Instance.new("Frame", Main)
+Controls.Position = UDim2.new(0, 10, 0, 50)
+Controls.Size = UDim2.new(1, -20, 0, 80)
+Controls.BackgroundColor3 = Color3.fromRGB(14, 14, 22)
+Controls.BorderSizePixel = 0
+Instance.new("UICorner", Controls).CornerRadius = UDim.new(0, 10)
+
+local grid = Instance.new("UIGridLayout", Controls)
+grid.CellSize = UDim2.new(0, 120, 0, 32)
+grid.CellPadding = UDim2.new(0, 8, 0, 6)
+grid.FillDirection = Enum.FillDirection.Horizontal
+grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+grid.VerticalAlignment = Enum.VerticalAlignment.Center
+grid.SortOrder = Enum.SortOrder.LayoutOrder
+
+local function makeToggle(text)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0, 120, 0, 32)
+    b.BackgroundColor3 = Color3.fromRGB(20, 20, 32)
+    b.Text = text .. ": OFF"
+    b.TextColor3 = Color3.fromRGB(230, 230, 255)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 13
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+    local s = Instance.new("UIStroke", b)
+    s.Color = Color3.fromRGB(120, 80, 200)
+    s.Thickness = 1
+    b.Parent = Controls
+    return b
+end
+
+local AutoJoinBtn   = makeToggle("Auto Join")
+local AutoForceBtn  = makeToggle("Auto Force")
+local AntiErrorBtn  = makeToggle("Anti Error")
+local PurpleBaseBtn = makeToggle("Purple Base")
+
+local BlacklistPetsBtn = Instance.new("TextButton")
+BlacklistPetsBtn.Size = UDim2.new(0, 120, 0, 32)
+BlacklistPetsBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 36)
+BlacklistPetsBtn.Text = "Blacklist Pets"
+BlacklistPetsBtn.TextColor3 = Color3.fromRGB(230, 230, 255)
+BlacklistPetsBtn.Font = Enum.Font.GothamBold
+BlacklistPetsBtn.TextSize = 13
+Instance.new("UICorner", BlacklistPetsBtn).CornerRadius = UDim.new(0, 8)
+local blStroke = Instance.new("UIStroke", BlacklistPetsBtn)
+blStroke.Color = Color3.fromRGB(120, 80, 200)
+blStroke.Thickness = 1
+BlacklistPetsBtn.Parent = Controls
+
+local OptimizerBtn = makeToggle("Optimizer")
+
+local function updateToggle(b, on)
+    local baseText = b.Text:match("^[^:]+") or ""
+    b.Text = baseText .. (on and ": ON" or ": OFF")
+    b.BackgroundColor3 = on and Color3.fromRGB(60, 20, 110) or Color3.fromRGB(20, 20, 32)
+end
+
+local function applyOptimizer(enabled)
+    state.optimizerEnabled = enabled
+    saveSettings()
+
+    if enabled then
+        pcall(function()
+            Lighting.GlobalShadows = false
+            Lighting.FogEnd = 1e6
+            Lighting.Brightness = 1
+        end)
+        pcall(function()
+            for _, mat in ipairs(Enum.Material:GetEnumItems()) do
+                MaterialService:SetOverrideMaterial(mat, Enum.Material.SmoothPlastic)
+            end
+        end)
+        pcall(function()
+            local terrain = Workspace:FindFirstChildOfClass("Terrain")
+            if terrain then
+                terrain.WaterWaveSize = 0
+                terrain.WaterWaveSpeed = 0
+                terrain.WaterReflectance = 0
+                terrain.WaterTransparency = 0
+            end
+        end)
+    else
+        pcall(function()
+            for _, mat in ipairs(Enum.Material:GetEnumItems()) do
+                MaterialService:SetOverrideMaterial(mat, nil)
+            end
+        end)
+    end
+end
+
+updateToggle(AutoJoinBtn,   state.autoJoin)
+updateToggle(AutoForceBtn,  state.autoForceJoin)
+updateToggle(AntiErrorBtn,  state.antiError)
+updateToggle(PurpleBaseBtn, state.purpleBaseEnabled)
+updateToggle(OptimizerBtn,  state.optimizerEnabled)
+
+AutoJoinBtn.MouseButton1Click:Connect(function()
+    state.autoJoin = not state.autoJoin
+    updateToggle(AutoJoinBtn, state.autoJoin)
+    saveSettings()
+end)
+
+AutoForceBtn.MouseButton1Click:Connect(function()
+    state.autoForceJoin = not state.autoForceJoin
+    updateToggle(AutoForceBtn, state.autoForceJoin)
+    saveSettings()
+end)
+
+AntiErrorBtn.MouseButton1Click:Connect(function()
+    state.antiError = not state.antiError
+    updateToggle(AntiErrorBtn, state.antiError)
+    saveSettings()
+end)
+
+PurpleBaseBtn.MouseButton1Click:Connect(function()
+    state.purpleBaseEnabled = not state.purpleBaseEnabled
+    updateToggle(PurpleBaseBtn, state.purpleBaseEnabled)
+    saveSettings()
+    togglePurpleBase(state.purpleBaseEnabled)
+end)
+
+OptimizerBtn.MouseButton1Click:Connect(function()
+    state.optimizerEnabled = not state.optimizerEnabled
+    updateToggle(OptimizerBtn, state.optimizerEnabled)
+    applyOptimizer(state.optimizerEnabled)
+end)
+
+if state.optimizerEnabled then
+    applyOptimizer(true)
+end
+
+local MinFrame = Instance.new("Frame", Main)
+MinFrame.Position = UDim2.new(0, 0, 0, 140)
+MinFrame.Size = UDim2.new(1, 0, 0, 30)
+MinFrame.BackgroundTransparency = 1
+
+local MinLabel = Instance.new("TextLabel", MinFrame)
+MinLabel.Size = UDim2.new(0, 220, 1, 0)
+MinLabel.BackgroundTransparency = 1
+MinLabel.Text = "Min (M) / Force Min (M):"
+MinLabel.TextColor3 = Color3.fromRGB(230, 230, 255)
+MinLabel.Font = Enum.Font.GothamBold
+MinLabel.TextSize = 13
+MinLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local MinBox = Instance.new("TextBox", MinFrame)
+MinBox.Size = UDim2.new(0, 80, 1, 0)
+MinBox.Position = UDim2.new(0, 230, 0, 0)
+MinBox.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
+MinBox.TextColor3 = Color3.fromRGB(230, 230, 255)
+MinBox.Font = Enum.Font.Gotham
+MinBox.TextSize = 13
+MinBox.PlaceholderText = tostring(state.minMoney)
+MinBox.Text = ""
+Instance.new("UICorner", MinBox).CornerRadius = UDim.new(0, 6)
+
+local ForceMinBox = Instance.new("TextBox", MinFrame)
+ForceMinBox.Size = UDim2.new(0, 80, 1, 0)
+ForceMinBox.Position = UDim2.new(0, 320, 0, 0)
+ForceMinBox.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
+ForceMinBox.TextColor3 = Color3.fromRGB(230, 230, 255)
+ForceMinBox.Font = Enum.Font.Gotham
+ForceMinBox.TextSize = 13
+ForceMinBox.PlaceholderText = tostring(state.minForceMoney)
+ForceMinBox.Text = ""
+Instance.new("UICorner", ForceMinBox).CornerRadius = UDim.new(0, 6)
+
+MinBox.FocusLost:Connect(function(enter)
+    if not enter then return end
+    local v = tonumber(MinBox.Text)
+    if v and v >= 0 then
+        state.minMoney = v
+        saveSettings()
+    end
+    MinBox.Text = ""
+    MinBox.PlaceholderText = tostring(state.minMoney)
+end)
+
+ForceMinBox.FocusLost:Connect(function(enter)
+    if not enter then return end
+    local v = tonumber(ForceMinBox.Text)
+    if v and v >= 0 then
+        state.minForceMoney = v
+        saveSettings()
+    end
+    ForceMinBox.Text = ""
+    ForceMinBox.PlaceholderText = tostring(state.minForceMoney)
+end)
+
+local StatusText = Instance.new("TextLabel", Main)
+StatusText.Position = UDim2.new(0.02, 0, 0, 174)
+StatusText.Size = UDim2.new(0.96, 0, 0, 22)
+StatusText.BackgroundTransparency = 1
+StatusText.Text = "Connecting to Secure Servers"
+StatusText.TextColor3 = Color3.fromRGB(210, 210, 230)
+StatusText.TextSize = 14
+StatusText.Font = Enum.Font.GothamMedium
+
+local ListContainer = Instance.new("ScrollingFrame", Main)
+ListContainer.Position = UDim2.new(0.02, 0, 0, 199)
+ListContainer.Size = UDim2.new(0.96, 0, 1, -209)
+ListContainer.BackgroundTransparency = 1
+ListContainer.ScrollBarThickness = 3
+ListContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ListContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+local UIListLayout = Instance.new("UIListLayout", ListContainer)
+UIListLayout.Padding = UDim.new(0, 8)
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+---------------------------------------------------------------------
+-- BLACKLIST PANEL UI
+---------------------------------------------------------------------
+local BlacklistPanel = Instance.new("Frame", ScreenGui)
+BlacklistPanel.Name = "BlacklistPanel"
+BlacklistPanel.Size = UDim2.new(0, 260, 0, 380)
+BlacklistPanel.Position = UDim2.new(0.5, 225, 0.5, -190)
+BlacklistPanel.BackgroundColor3 = Color3.fromRGB(10, 10, 18)
+BlacklistPanel.Visible = false
+Instance.new("UICorner", BlacklistPanel).CornerRadius = UDim.new(0, 12)
+local blOuterPanel = Instance.new("UIStroke", BlacklistPanel)
+blOuterPanel.Color = Color3.fromRGB(160, 80, 255)
+blOuterPanel.Thickness = 2
+
+local BLTitle = Instance.new("TextLabel", BlacklistPanel)
+BLTitle.Size = UDim2.new(1, -10, 0, 30)
+BLTitle.Position = UDim2.new(0, 5, 0, 4)
+BLTitle.BackgroundTransparency = 1
+BLTitle.Text = "Blacklist Brainrots"
+BLTitle.TextColor3 = Color3.fromRGB(200, 180, 255)
+BLTitle.Font = Enum.Font.GothamBold
+BLTitle.TextSize = 16
+
+local SectionsFrame = Instance.new("Frame", BlacklistPanel)
+SectionsFrame.Size = UDim2.new(0, 80, 1, -40)
+SectionsFrame.Position = UDim2.new(0, 5, 0, 36)
+SectionsFrame.BackgroundTransparency = 1
+local sfLayout = Instance.new("UIListLayout", SectionsFrame)
+sfLayout.FillDirection = Enum.FillDirection.Vertical
+sfLayout.Padding = UDim.new(0, 6)
+
+local function makeSectionButton(text)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1, 0, 0, 30)
+    b.BackgroundColor3 = Color3.fromRGB(20, 20, 32)
+    b.Text = text
+    b.TextColor3 = Color3.fromRGB(230, 230, 255)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 12
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+    local s = Instance.new("UIStroke", b)
+    s.Color = Color3.fromRGB(120, 80, 200)
+    s.Thickness = 1
+    b.Parent = SectionsFrame
+    return b
+end
+
+local BrainrotGodBtn = makeSectionButton("Brainrot God")
+local SecretBtn      = makeSectionButton("Secret")
+local OGBtn          = makeSectionButton("OG")
+
+local ListScroll = Instance.new("ScrollingFrame", BlacklistPanel)
+ListScroll.Position = UDim2.new(0, 90, 0, 36)
+ListScroll.Size = UDim2.new(1, -95, 1, -45)
+ListScroll.BackgroundTransparency = 1
+ListScroll.ScrollBarThickness = 3
+ListScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+local listLayout = Instance.new("UIListLayout", ListScroll)
+listLayout.Padding = UDim.new(0, 4)
+listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ListScroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 6)
+end)
+
+local currentSection = "BrainrotGod"
+
+local function isNameBlacklisted(name)
+    if state.blacklist[name] then
+        return true
+    end
+    return false
+end
+
+local function toggleNameBlacklist(name)
+    if state.blacklist[name] then
+        state.blacklist[name] = nil
+    else
+        state.blacklist[name] = true
+    end
+    saveSettings()
+end
+
+local function clearListButtons()
+    for _, child in ipairs(ListScroll:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+end
+
+local function makeNameButton(name)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1, -4, 0, 26)
+    b.BackgroundColor3 = Color3.fromRGB(18, 18, 30)
+    b.Text = name
+    b.TextColor3 = Color3.fromRGB(230, 230, 255)
+    b.Font = Enum.Font.Gotham
+    b.TextSize = 12
+    b.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    local s = Instance.new("UIStroke", b)
+    s.Thickness = 1
+    b.Parent = ListScroll
+
+    local function refresh()
+        if isNameBlacklisted(name) then
+            b.BackgroundColor3 = Color3.fromRGB(160, 40, 80)
+        else
+            b.BackgroundColor3 = Color3.fromRGB(18, 18, 30)
+        end
+    end
+    refresh()
+
+    b.MouseButton1Click:Connect(function()
+        toggleNameBlacklist(name)
+        refresh()
+    end)
+end
+
+local function loadSection(sec)
+    currentSection = sec
+    clearListButtons()
+    local listRef
+    if sec == "BrainrotGod" then
+        listRef = BrainrotGodList
+    elseif sec == "Secret" then
+        listRef = SecretList
+    else
+        listRef = OGList
+    end
+    for _, nm in ipairs(listRef) do
+        makeNameButton(nm)
+    end
+end
+
+local function setSectionHighlight(activeBtn)
+    for _, b in ipairs(SectionsFrame:GetChildren()) do
+        if b:IsA("TextButton") then
+            b.BackgroundColor3 = b == activeBtn and Color3.fromRGB(60, 20, 110) or Color3.fromRGB(20, 20, 32)
+        end
+    end
+end
+
+BrainrotGodBtn.MouseButton1Click:Connect(function()
+    setSectionHighlight(BrainrotGodBtn)
+    loadSection("BrainrotGod")
+end)
+SecretBtn.MouseButton1Click:Connect(function()
+    setSectionHighlight(SecretBtn)
+    loadSection("Secret")
+end)
+OGBtn.MouseButton1Click:Connect(function()
+    setSectionHighlight(OGBtn)
+    loadSection("OG")
+end)
+
+setSectionHighlight(BrainrotGodBtn)
+loadSection("BrainrotGod")
+
+local blacklistPanelOpen = false
+local PANEL_GAP = 12
+
+local function toggleBlacklistPanel()
+    blacklistPanelOpen = not blacklistPanelOpen
+
+    if blacklistPanelOpen then
+        local x = Main.AbsolutePosition.X + Main.AbsoluteSize.X + PANEL_GAP
+        local y = Main.AbsolutePosition.Y
+
+        BlacklistPanel.Position = UDim2.new(0, x, 0, y)
+        BlacklistPanel.Visible = true
+    else
+        BlacklistPanel.Visible = false
+    end
+end
+
+BlacklistPetsBtn.MouseButton1Click:Connect(toggleBlacklistPanel)
+
+---------------------------------------------------------------------
+-- NOTIFICATION SYSTEM (from previous step)
+---------------------------------------------------------------------
+local NotificationHolder = Instance.new("Frame")
+NotificationHolder.Name = "NotificationHolder"
+NotificationHolder.Size = UDim2.new(0, 260, 1, 0)
+NotificationHolder.AnchorPoint = Vector2.new(1, 0)
+NotificationHolder.Position = UDim2.new(1, -10, 0, 10)
+NotificationHolder.BackgroundTransparency = 1
+NotificationHolder.ClipsDescendants = false
+NotificationHolder.Parent = ScreenGui
+
+local NotificationLayout = Instance.new("UIListLayout", NotificationHolder)
+NotificationLayout.SortOrder = Enum.SortOrder.LayoutOrder
+NotificationLayout.Padding = UDim.new(0, 6)
+NotificationLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+
+local notifCounter = 0
+
+local function ShowJoinNotification(brainrotName, moneyPerSecond)
+    notifCounter -= 1
+
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1, 0, 0, 56)
+    card.BackgroundColor3 = Color3.fromRGB(18, 18, 35)
+    card.BackgroundTransparency = 0
+    card.BorderSizePixel = 0
+    card.ClipsDescendants = true
+    card.LayoutOrder = notifCounter
+    card.Parent = NotificationHolder
+
+    local corner = Instance.new("UICorner", card)
+    corner.CornerRadius = UDim.new(0, 10)
+
+    local stroke = Instance.new("UIStroke", card)
+    stroke.Thickness = 1.5
+    stroke.Color = Color3.fromRGB(150, 80, 255)
+
+    local title = Instance.new("TextLabel")
+    title.BackgroundTransparency = 1
+    title.Position = UDim2.new(0, 10, 0, 6)
+    title.Size = UDim2.new(1, -20, 0, 18)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 14
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.TextColor3 = Color3.fromRGB(230, 230, 255)
+    title.Text = "Joining Brainrot"
+    title.Parent = card
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Position = UDim2.new(0, 10, 0, 24)
+    nameLabel.Size = UDim2.new(1, -20, 0, 16)
+    nameLabel.Font = Enum.Font.GothamMedium
+    nameLabel.TextSize = 13
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.TextColor3 = Color3.fromRGB(200, 200, 220)
+    nameLabel.Text = tostring(brainrotName) .. "  |  " .. tostring(moneyPerSecond) .. "/s"
+    nameLabel.Parent = card
+
+    card.Position = UDim2.new(1, 260, 0, 0)
+    local tweenIn = TweenService:Create(
+        card,
+        TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {Position = UDim2.new(0, 0, 0, 0)}
+    )
+    tweenIn:Play()
+
+    task.spawn(function()
+        task.wait(3.5)
+        local tweenOutPos = TweenService:Create(
+            card,
+            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+            {Position = UDim2.new(1, 260, 0, 0)}
+        )
+        local tweenOutTrans = TweenService:Create(
+            card,
+            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+            {BackgroundTransparency = 1}
+        )
+        tweenOutPos:Play()
+        tweenOutTrans:Play()
+        tweenOutPos.Completed:Wait()
+        card:Destroy()
+    end)
+end
+
+---------------------------------------------------------------------
+-- RUNTIME BLACKLIST CHECK (name‑substring)
+---------------------------------------------------------------------
+local logSortCounter = 0
+
+local function isBrainrotBlacklisted(name)
+    name = string.lower(name)
+
+    for blName, _ in pairs(state.blacklist) do
+        if string.find(name, string.lower(blName), 1, true) then
+            return true
+        end
+    end
+
+    return false
+end
+
+---------------------------------------------------------------------
+-- ADD ENTRY + AUTO JOIN / FORCE + NOTIFICATION
+---------------------------------------------------------------------
+local function AddEntry(name, moneyStr, jobid)
+    local rawMoney = cleanMoney(moneyStr)
+    local moneyValM = getNormalizedMoney(rawMoney)
+    name = tostring(name or "Unknown")
+
+    if isBrainrotBlacklisted(name) then
+        return
+    end
+
+    local isTargetMode = next(state.targetList) ~= nil
+    if isTargetMode then
+        if not state.targetList[name] then return end
+        local lim = state.targetLimits[name] or 0
+        if moneyValM < lim then return end
+    else
+        if moneyValM < state.minMoney then return end
+    end
+
+    StatusText.Visible = false
+
+    local Card = Instance.new("Frame", ListContainer)
+    Card.Size = UDim2.new(0.98, 0, 0, 52)
+    Card.BackgroundColor3 = Color3.fromRGB(14, 14, 24)
+    Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 10)
+    local stroke = Instance.new("UIStroke", Card)
+    stroke.Color = Color3.fromRGB(150, 80, 255)
+    stroke.Thickness = 1.5
+
+    logSortCounter -= 1
+    Card.LayoutOrder = logSortCounter
+
+    local NameL = Instance.new("TextLabel", Card)
+    NameL.Size = UDim2.new(0.45, -10, 1, 0)
+    NameL.Position = UDim2.new(0, 10, 0, 0)
+    NameL.Text = name
+    NameL.TextColor3 = Color3.new(1, 1, 1)
+    NameL.Font = Enum.Font.GothamBold
+    NameL.TextSize = 14
+    NameL.TextXAlignment = Enum.TextXAlignment.Left
+    NameL.BackgroundTransparency = 1
+
+    local MoneyL = Instance.new("TextLabel", Card)
+    MoneyL.Size = UDim2.new(0.25, 0, 1, 0)
+    MoneyL.Position = UDim2.new(0.45, 0, 0, 0)
+    MoneyL.Text = "$" .. formatMoney(rawMoney) .. "/s"
+    MoneyL.TextColor3 = Color3.fromRGB(180, 180, 200)
+    MoneyL.Font = Enum.Font.GothamMedium
+    MoneyL.TextSize = 13
+    MoneyL.BackgroundTransparency = 1
+
+    local function Btn(txt, pos, col, cb)
+        local b = Instance.new("TextButton", Card)
+        b.Size = UDim2.new(0.16, 0, 0.65, 0)
+        b.Position = UDim2.new(pos, 0, 0.5, 0)
+        b.AnchorPoint = Vector2.new(0, 0.5)
+        b.BackgroundColor3 = col
+        b.Text = txt
+        b.TextColor3 = Color3.new(1, 1, 1)
+        b.Font = Enum.Font.GothamBold
+        b.TextSize = 12
+        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+        b.MouseButton1Click:Connect(cb)
+        return b
+    end
+
+    Btn("JOIN", 0.67, Color3.fromRGB(80, 40, 255), function()
+        ultraCheckjobid(jobid)
+        ShowJoinNotification(name, MoneyL.Text:gsub("^%$", ""))
+    end)
+
+    local forceBtn
+    forceBtn = Btn("FORCE", 0.84, Color3.fromRGB(130, 50, 255), function()
+        if state.activeForces[jobid] then
+            state.activeForces[jobid] = nil
+            forceBtn.Text = "FORCE"
+            forceBtn.BackgroundColor3 = Color3.fromRGB(130, 50, 255)
+        else
+            state.activeForces[jobid] = {time = os.clock(), btn = forceBtn}
+            forceBtn.Text = "STOP"
+            forceBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 80)
+            task.spawn(function()
+                ultraCheckjobid(jobid)
+                ShowJoinNotification(name, MoneyL.Text:gsub("^%$", ""))
+            end)
+        end
+    end)
+
+    local shouldForce = false
+    if state.autoForceJoin and moneyValM >= state.minForceMoney then
+        shouldForce = true
+    end
+
+    if shouldForce then
+        state.activeForces[jobid] = {time = os.clock(), btn = forceBtn}
+        forceBtn.Text = "STOP"
+        forceBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 80)
+        task.spawn(function()
+            ultraCheckjobid(jobid)
+            ShowJoinNotification(name, MoneyL.Text:gsub("^%$", ""))
+        end)
+    elseif state.autoJoin then
+        task.spawn(function()
+            ultraCheckjobid(jobid)
+            ShowJoinNotification(name, MoneyL.Text:gsub("^%$", ""))
+        end)
+    end
+end
+
+---------------------------------------------------------------------
+-- FORCE LOOP
+---------------------------------------------------------------------
+task.spawn(function()
+    while true do
+        local now = os.clock()
+        local any = false
+        for jobId, info in pairs(state.activeForces) do
+            any = true
+            if now - info.time >= state.forceDuration then
+                if info.btn then
+                    info.btn.Text = "FORCE"
+                    info.btn.BackgroundColor3 = Color3.fromRGB(130, 50, 255)
+                end
+                state.activeForces[jobId] = nil
+            else
+                ultraCheckjobid(jobId)
+                task.wait(0.15)
+            end
+        end
+        if not any then task.wait(0.5) end
+    end
+end)
+
+---------------------------------------------------------------------
+-- WEBSOCKET (JOINER SIDE) – connects to Railway
+---------------------------------------------------------------------
+local function ConnectWS()
+    local HttpService = game:GetService("HttpService")
+    local success, connect = pcall(function()
+        return (syn and syn.websocket and syn.websocket.connect)
+            or (WebSocket and WebSocket.connect)
+            or (websocket and websocket.connect)
+    end)
+    if not success or not connect then
+        StatusText.Text = "Incompatible Executor"
+        return
+    end
+
+    local WS_URL = "wss://saintfinder-port-websocket-production.up.railway.app/ws"
+
+    local function loop()
+        local success, ws = pcall(function()
+            return connect(WS_URL)
+        end)
+        if success and ws then
+            StatusText.Text = "Connected To Secure Servers"
+            ws.OnMessage:Connect(function(msg)
+                local ok, decoded = pcall(HttpService.JSONDecode, HttpService, msg)
+                if ok and decoded and decoded.money then
+                    AddEntry(decoded.name, decoded.money, decoded.jobid, decoded.players)
+                end
+            end)
+        else
+            StatusText.Text = "Retrying"
+            task.wait(3)
+            loop()
+        end
+    end
+
+    loop()
+end
+
+ConnectWS()
+
+---------------------------------------------------------------------
+-- SJ BOX (MINI BUTTON)
+---------------------------------------------------------------------
+SJBox = Instance.new("Frame", ScreenGui)
+SJBox.Name = "SJBox"
+SJBox.Size = UDim2.new(0, 44, 0, 44)
+SJBox.Position = UDim2.new(0.5, -22, 0.5, -22)
+SJBox.BackgroundColor3 = Color3.fromRGB(16, 16, 26)
+SJBox.Visible = false
+SJBox.Active = true
+Instance.new("UICorner", SJBox).CornerRadius = UDim.new(0, 12)
+
+local SJStroke = Instance.new("UIStroke", SJBox)
+SJStroke.Color = Color3.fromRGB(160, 80, 255)
+SJStroke.Thickness = 2
+
+local sjOuterStroke = Instance.new("UIStroke")
+sjOuterStroke.Thickness = 2
+sjOuterStroke.Color = Color3.fromRGB(160, 80, 255)
+sjOuterStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+sjOuterStroke.Parent = SJBox
+
+local sjStrokeGradient = Instance.new("UIGradient")
+sjStrokeGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0.00, Color3.fromRGB(210, 110, 255)),
+    ColorSequenceKeypoint.new(0.18, Color3.fromRGB(40, 15, 80)),
+    ColorSequenceKeypoint.new(0.36, Color3.fromRGB(190, 90, 255)),
+    ColorSequenceKeypoint.new(0.54, Color3.fromRGB(25, 10, 55)),
+    ColorSequenceKeypoint.new(0.72, Color3.fromRGB(220, 130, 255)),
+    ColorSequenceKeypoint.new(0.90, Color3.fromRGB(55, 18, 105)),
+    ColorSequenceKeypoint.new(1.00, Color3.fromRGB(210, 110, 255)),
+})
+sjStrokeGradient.Transparency = NumberSequence.new({
+    NumberSequenceKeypoint.new(0.00, 0.0),
+    NumberSequenceKeypoint.new(0.25, 0.45),
+    NumberSequenceKeypoint.new(0.50, 0.0),
+    NumberSequenceKeypoint.new(0.75, 0.45),
+    NumberSequenceKeypoint.new(1.00, 0.0),
+})
+sjStrokeGradient.Parent = sjOuterStroke
+
+task.spawn(function()
+    local rot = 0
+    while SJBox.Parent do
+        task.wait(0.016)
+        rot = (rot + 1.8) % 360
+        pcall(function()
+            sjStrokeGradient.Rotation = rot
+        end)
+    end
+end)
+
+local SJButton = Instance.new("TextButton", SJBox)
+SJButton.Size = UDim2.new(1, 0, 1, 0)
+SJButton.BackgroundTransparency = 1
+SJButton.Text = "SJ"
+SJButton.TextColor3 = Color3.fromRGB(230, 230, 255)
+SJButton.Font = Enum.Font.GothamBold
+SJButton.TextSize = 16
+
+do
+    local dragging, dragStart, startPos
+
+    local function update(input)
+        local delta = input.Position - dragStart
+        SJBox.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+
+    SJBox.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+           or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = SJBox.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch) then
+            update(input)
+        end
+    end)
+end
+
+CloseBtn.MouseButton1Click:Connect(function()
+    Main.Visible = false
+    SJBox.Visible = true
+end)
+
+SJButton.MouseButton1Click:Connect(function()
+    SJBox.Visible = false
+    Main.Visible = true
+end)
